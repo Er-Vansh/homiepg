@@ -39,7 +39,11 @@ function SidebarContent({ user }: SidebarProps) {
   const handleLogout = async () => {
     try {
       const endpoint = user.role === 'SUPER_ADMIN' ? '/api/admin/auth/logout' : '/api/auth/logout';
-      const redirectPath = user.role === 'SUPER_ADMIN' ? '/admin' : '/login';
+      const redirectPath = user.role === 'SUPER_ADMIN' 
+        ? '/admin' 
+        : user.role === 'OWNER' 
+          ? '/pgowner' 
+          : '/login';
       
       const res = await fetch(endpoint, { method: 'POST' });
       if (res.ok) {

@@ -53,6 +53,14 @@
       "role": "OWNER",
       "phone": "7652015646",
       "createdAt": "2026-07-01T05:17:27.033Z"
+    },
+    {
+      "id": "usr_movgb7bmz",
+      "email": "vanshmaurya01234@gmail.com",
+      "passwordHash": "OAUTH_GOOGLE",
+      "name": "Vansh Maurya",
+      "role": "USER",
+      "createdAt": "2026-07-01T06:01:51.646Z"
     }
   ],
   "ownerProfiles": [
@@ -1150,6 +1158,54 @@
       "action": "BOOKING_APPROVED",
       "details": "Approved Booking: bkg_0o7gwe3pb. Created Resident: res_no8u6s3ly",
       "timestamp": "2026-07-01T05:19:35.901Z"
+    },
+    {
+      "id": "aud_0gizlwyl5",
+      "userEmail": "owner@homiepg.com",
+      "userName": "Vansh Maurya",
+      "action": "OWNER_LOGIN_SUCCESS",
+      "details": "IP: ::1 | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 | Message: Owner session established via secure /pgowner portal.",
+      "ipAddress": "::1",
+      "timestamp": "2026-07-01T05:50:45.400Z"
+    },
+    {
+      "id": "log_62mekq4lj",
+      "userId": "usr_katf2q285",
+      "action": "USER_LOGGED_IN",
+      "details": "User logged in. Role: USER",
+      "timestamp": "2026-07-01T05:53:03.706Z"
+    },
+    {
+      "id": "aud_2cp4wla12",
+      "userId": "usr_movgb7bmz",
+      "action": "TENANT_REGISTERED_OAUTH",
+      "details": "Tenant registered via Google OAuth. Name: Vansh Maurya",
+      "timestamp": "2026-07-01T06:01:51.646Z"
+    },
+    {
+      "id": "aud_0dh2pl92d",
+      "userEmail": "user1@homiepg.com",
+      "userName": "UNAUTHORIZED_OWNER_ATTEMPT",
+      "action": "OWNER_LOGIN_FAILED",
+      "details": "IP: ::1 | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 | Message: Invalid credentials or role mismatch.",
+      "ipAddress": "::1",
+      "timestamp": "2026-07-01T06:10:52.965Z"
+    },
+    {
+      "id": "aud_i0gk6rkvc",
+      "userEmail": "owner@homiepg.com",
+      "userName": "Vansh Maurya",
+      "action": "OWNER_LOGIN_SUCCESS",
+      "details": "IP: ::1 | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 | Message: Owner session established via secure /pgowner portal.",
+      "ipAddress": "::1",
+      "timestamp": "2026-07-01T06:10:54.874Z"
+    },
+    {
+      "id": "log_ltshafrxo",
+      "userId": "usr_katf2q285",
+      "action": "USER_LOGGED_IN",
+      "details": "User logged in. Role: USER",
+      "timestamp": "2026-07-01T06:11:39.065Z"
     }
   ],
   "subscriptionPlans": [

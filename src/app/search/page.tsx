@@ -40,7 +40,7 @@ function SearchPageComponent() {
   const [minRent, setMinRent] = useState(0);
   const [maxRent, setMaxRent] = useState(25000);
   const [gender, setGender] = useState(searchParams.get('gender') || '');
-  const [sharing, setSharing] = useState(0);
+  const [sharing, setSharing] = useState(Number(searchParams.get('sharing')) || 0);
   const [wifi, setWifi] = useState(false);
   const [food, setFood] = useState(false);
   const [ac, setAc] = useState(false);

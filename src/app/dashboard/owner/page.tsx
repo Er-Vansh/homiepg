@@ -171,7 +171,7 @@ function OwnerDashboardComponent() {
       const meRes = await fetch('/api/auth/me');
       const meData = await meRes.json();
       if (!meRes.ok || !meData.authenticated || meData.user.role !== 'OWNER') {
-        router.push('/login');
+        router.push('/pgowner');
         return;
       }
       setUser(meData.user);

@@ -231,7 +231,7 @@ function SuperAdminDashboardComponent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center space-y-4">
+      <div className="dark min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center space-y-4">
         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
         <span className="text-xs text-zinc-500 font-bold">Unlocking administrative vaults...</span>
       </div>
@@ -239,7 +239,7 @@ function SuperAdminDashboardComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex">
+    <div className="dark min-h-screen bg-zinc-50 dark:bg-zinc-950 flex text-zinc-900 dark:text-zinc-100">
       {user && <Sidebar user={user} />}
 
       {/* Main Container */}

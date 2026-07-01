@@ -17,12 +17,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Check if owner is suspended
+    // Reject PG Owner login via this general tenant portal
     if (user.role === 'OWNER') {
-      const profile = db.ownerProfiles.find(p => p.userId === user.id);
-      if (profile && profile.verificationStatus === 'SUSPENDED') {
-        return NextResponse.json({ error: 'Your account has been suspended. Please contact support.' }, { status: 403 });
-      }
+      return NextResponse.json({ error: 'Please use the PG Owner portal (/pgowner) to sign in.' }, { status: 403 });
     }
 
     // Log action
