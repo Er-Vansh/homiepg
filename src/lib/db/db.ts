@@ -70,6 +70,13 @@ export interface Bed {
   expectedVacantDate?: string;
 }
 
+export interface CompatibilityProfile {
+  diet: 'VEG' | 'NON_VEG' | 'ANY';
+  sleep: 'EARLY_BIRD' | 'NIGHT_OWL' | 'FLEXIBLE';
+  occupation: 'STUDENT' | 'PROFESSIONAL' | 'OTHER';
+  hobbies: string;
+}
+
 export interface Resident {
   id: string;
   ownerId: string;
@@ -98,6 +105,7 @@ export interface Resident {
   kycDocAgreement?: string;
   kycDocSignature?: string;
   policeVerified: boolean;
+  compatibilityProfile?: CompatibilityProfile;
 }
 
 export interface Booking {
@@ -154,6 +162,7 @@ export interface Employee {
   salary: number;
   attendance: { [month: string]: number }; // e.g. "2026-06": 28
   rating: number;
+  ratingCount?: number;
 }
 
 export interface TicketMessage {
@@ -173,6 +182,7 @@ export interface Ticket {
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
   messages: TicketMessage[];
   createdAt: string;
+  assignedEmployeeId?: string;
 }
 
 export interface AuditLog {
@@ -229,22 +239,43 @@ export interface DBData {
   adBanners: AdBanner[];
 }
 
-const DB_FILE_PATH = path.join(process.cwd(), 'db.json');
+const isServerless = !!(process.env.VERCEL || process.env.AWS_EXECUTION_ENV || process.env.NETLIFY || process.env.PORTAL_DEPLOYMENT);
+const REPO_DB_PATH = path.join(process.cwd(), 'db.json');
+const DB_FILE_PATH = isServerless ? path.join('/tmp', 'db.json') : REPO_DB_PATH;
 
-// Ensure DB file exists or create it with seed data
+// Ensure DB file exists or copy/seed it
 export function getDB(): DBData {
+  if (isServerless && !fs.existsSync(DB_FILE_PATH)) {
+    if (fs.existsSync(REPO_DB_PATH)) {
+      try {
+        fs.copyFileSync(REPO_DB_PATH, DB_FILE_PATH);
+      } catch (err) {
+        console.error('Failed to copy db.json to /tmp', err);
+      }
+    }
+  }
+
   if (!fs.existsSync(DB_FILE_PATH)) {
     const seed = getSeedData();
-    fs.writeFileSync(DB_FILE_PATH, JSON.stringify(seed, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(seed, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('Failed to write seed db.json', err);
+    }
     return seed;
   }
+  
   try {
     const content = fs.readFileSync(DB_FILE_PATH, 'utf-8');
     return JSON.parse(content) as DBData;
   } catch (e) {
     console.error('Failed to parse database, generating seed', e);
     const seed = getSeedData();
-    fs.writeFileSync(DB_FILE_PATH, JSON.stringify(seed, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(seed, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('Failed to recover write db.json', err);
+    }
     return seed;
   }
 }
@@ -462,6 +493,12 @@ function getSeedData(): DBData {
       kycDocAadhaar: '/kyc/aadhaar_amit.pdf',
       kycDocPan: '/kyc/pan_amit.pdf',
       policeVerified: true,
+      compatibilityProfile: {
+        diet: 'VEG',
+        sleep: 'EARLY_BIRD',
+        occupation: 'PROFESSIONAL',
+        hobbies: 'Coding, Reading books'
+      }
     });
     residentCounter++;
 
@@ -509,6 +546,12 @@ function getSeedData(): DBData {
       status: 'ACTIVE',
       kycDocAadhaar: '/kyc/aadhaar_vikram.pdf',
       policeVerified: false,
+      compatibilityProfile: {
+        diet: b.id === 'bld_3' ? 'VEG' : 'NON_VEG',
+        sleep: 'NIGHT_OWL',
+        occupation: 'STUDENT',
+        hobbies: 'Gaming, Football'
+      }
     });
     residentCounter++;
 
@@ -645,6 +688,7 @@ function getSeedData(): DBData {
       salary: 15000,
       attendance: { '2026-06': 30 },
       rating: 4.8,
+      ratingCount: 1,
     },
     {
       id: 'emp_2',
@@ -656,6 +700,7 @@ function getSeedData(): DBData {
       salary: 12000,
       attendance: { '2026-06': 29 },
       rating: 4.5,
+      ratingCount: 1,
     },
     {
       id: 'emp_3',
@@ -667,6 +712,7 @@ function getSeedData(): DBData {
       salary: 8000,
       attendance: { '2026-06': 26 },
       rating: 4.2,
+      ratingCount: 1,
     },
   ];
 

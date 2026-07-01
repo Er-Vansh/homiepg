@@ -61,6 +61,14 @@
       "name": "Vansh Maurya",
       "role": "USER",
       "createdAt": "2026-07-01T06:01:51.646Z"
+    },
+    {
+      "id": "usr_eeu53ubq2",
+      "email": "thepheonix0512@gmail.com",
+      "passwordHash": "OAUTH_GOOGLE",
+      "name": "Pheonix",
+      "role": "USER",
+      "createdAt": "2026-07-01T15:00:27.631Z"
     }
   ],
   "ownerProfiles": [
@@ -562,7 +570,8 @@
       "id": "bed_4f3cowf5x",
       "roomId": "rm_fm92036ka",
       "bedNumber": "201-A",
-      "status": "AVAILABLE"
+      "status": "RESERVED",
+      "reservationExpiry": "2026-07-01T15:31:31.146Z"
     },
     {
       "id": "bed_rncb9edtl",
@@ -750,7 +759,13 @@
       "outstandingAmount": 0,
       "status": "ACTIVE",
       "kycDocAadhaar": "/kyc/aadhaar_pending.pdf",
-      "policeVerified": false
+      "policeVerified": false,
+      "compatibilityProfile": {
+        "diet": "VEG",
+        "sleep": "FLEXIBLE",
+        "occupation": "STUDENT",
+        "hobbies": "Guitar Playing"
+      }
     }
   ],
   "bookings": [
@@ -813,6 +828,21 @@
       "paymentMethod": "UPI",
       "transactionId": "asdf54321ghj",
       "createdAt": "2026-07-01T05:19:19.885Z"
+    },
+    {
+      "id": "bkg_7we930i97",
+      "userId": "usr_eeu53ubq2",
+      "buildingId": "bld_g96amhe93",
+      "roomId": "rm_fm92036ka",
+      "bedId": "bed_4f3cowf5x",
+      "amount": 11200,
+      "status": "PENDING",
+      "moveInDate": "2026-07-02",
+      "moveOutDate": "2026-12-28",
+      "paymentProofUrl": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=400&q=80",
+      "paymentMethod": "UPI",
+      "transactionId": "txn121324",
+      "createdAt": "2026-07-01T15:01:31.145Z"
     }
   ],
   "payments": [
@@ -1215,6 +1245,50 @@
       "details": "IP: ::1 | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 | Message: Owner session established via secure /pgowner portal.",
       "ipAddress": "::1",
       "timestamp": "2026-07-01T06:25:08.191Z"
+    },
+    {
+      "id": "aud_gcgjrx9yu",
+      "userEmail": "owner@homiepg.com",
+      "userName": "Vansh Maurya",
+      "action": "OWNER_LOGIN_SUCCESS",
+      "details": "IP: ::1 | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 | Message: Owner session established via secure /pgowner portal.",
+      "ipAddress": "::1",
+      "timestamp": "2026-07-01T14:40:42.518Z"
+    },
+    {
+      "id": "log_dyopfg4ln",
+      "userId": "usr_katf2q285",
+      "action": "USER_LOGGED_IN",
+      "details": "User logged in. Role: USER",
+      "timestamp": "2026-07-01T14:48:55.555Z"
+    },
+    {
+      "id": "log_y7yjnclwx",
+      "userId": "usr_katf2q285",
+      "action": "USER_LOGGED_IN",
+      "details": "User logged in. Role: USER",
+      "timestamp": "2026-07-01T14:57:02.862Z"
+    },
+    {
+      "id": "aud_3wqhd8ugz",
+      "userId": "usr_eeu53ubq2",
+      "action": "TENANT_REGISTERED_OAUTH",
+      "details": "Tenant registered via Google OAuth. Name: Pheonix",
+      "timestamp": "2026-07-01T15:00:27.631Z"
+    },
+    {
+      "id": "log_wbfk8wtn5",
+      "userId": "usr_eeu53ubq2",
+      "action": "BED_RESERVED",
+      "details": "Reserved bed: 201-A under Booking: bkg_7we930i97",
+      "timestamp": "2026-07-01T15:01:31.145Z"
+    },
+    {
+      "id": "log_5knx0tpwa",
+      "userId": "usr_katf2q285",
+      "action": "USER_LOGGED_IN",
+      "details": "User logged in. Role: USER",
+      "timestamp": "2026-07-01T15:15:15.783Z"
     }
   ],
   "subscriptionPlans": [

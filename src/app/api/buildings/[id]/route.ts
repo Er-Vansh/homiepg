@@ -15,9 +15,21 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const rooms = db.rooms.filter(r => r.buildingId === building.id);
     const roomsWithBeds = rooms.map(r => {
       const beds = db.beds.filter(b => b.roomId === r.id);
+      const bedsWithProfiles = beds.map(bed => {
+        if (bed.status === 'OCCUPIED') {
+          const resident = db.residents.find(res => res.bedId === bed.id);
+          if (resident && resident.compatibilityProfile) {
+            return {
+              ...bed,
+              roommateProfile: resident.compatibilityProfile,
+            };
+          }
+        }
+        return bed;
+      });
       return {
         ...r,
-        beds,
+        beds: bedsWithProfiles,
       };
     });
 

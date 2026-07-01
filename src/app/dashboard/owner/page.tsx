@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Building, UserCheck, Receipt, CreditCard, Users, UsersRound, TrendingUp, 
-  Plus, Check, X, ShieldAlert, Award, Calendar, ChevronRight, FileText, Loader2, Sparkles 
+  Plus, Check, X, ShieldAlert, Award, Calendar, ChevronRight, FileText, Loader2, Sparkles, Zap
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import AnalyticsChart from '@/components/analytics-chart';
@@ -27,6 +27,13 @@ interface Building {
   baseRent: number;
   baseDeposit: number;
   amenities: string[];
+  electricityCharges?: number;
+  waterCharges?: number;
+  wifiCharges?: number;
+  laundryCharges?: number;
+  parkingCharges?: number;
+  housekeepingCharges?: number;
+  foodCharges?: number;
 }
 
 interface Booking {
@@ -49,6 +56,8 @@ interface Resident {
   name: string;
   phone: string;
   email: string;
+  buildingId: string;
+  roomId: string;
   buildingName: string;
   roomNumber: string;
   bedNumber: string;
@@ -56,6 +65,7 @@ interface Resident {
   outstandingAmount: number;
   policeVerified: boolean;
   kycDocAadhaar?: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'SUSPENDED';
 }
 
 interface Payment {
@@ -165,6 +175,23 @@ function OwnerDashboardComponent() {
 
   // Proof screenshot viewer
   const [viewProofUrl, setViewProofUrl] = useState<string | null>(null);
+
+  // Visual Layout Designer states
+  const [showLayoutDesigner, setShowLayoutDesigner] = useState(false);
+  const [designerLoading, setDesignerLoading] = useState(false);
+  const [designerBuildingId, setDesignerBuildingId] = useState('');
+  const [designerBuildingName, setDesignerBuildingName] = useState('');
+  const [designerRooms, setDesignerRooms] = useState<any[]>([]);
+  const [designerError, setDesignerError] = useState('');
+
+  // Sub-Meter Utility Billing states
+  const [showGenerateBills, setShowGenerateBills] = useState(false);
+  const [billingBldId, setBillingBldId] = useState('');
+  const [billingMonth, setBillingMonth] = useState('July 2026');
+  const [billingUnits, setBillingUnits] = useState<{ [roomId: string]: number }>({});
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState('');
+  const [billingSuccess, setBillingSuccess] = useState('');
 
   const fetchERPData = async () => {
     try {
@@ -384,6 +411,170 @@ function OwnerDashboardComponent() {
     }
   };
 
+  // Visual Floor Layout Configurator Actions
+  const handleOpenLayoutDesigner = async (bldId: string, bldName: string) => {
+    setDesignerBuildingId(bldId);
+    setDesignerBuildingName(bldName);
+    setDesignerLoading(true);
+    setDesignerError('');
+    setShowLayoutDesigner(true);
+    try {
+      const res = await fetch(`/api/buildings/${bldId}`);
+      const data = await res.json();
+      if (data.success) {
+        setDesignerRooms(data.building.rooms || []);
+      } else {
+        setDesignerError(data.error || 'Failed to load layout blueprint.');
+      }
+    } catch (e) {
+      setDesignerError('Error fetching building configuration.');
+    } finally {
+      setDesignerLoading(false);
+    }
+  };
+
+  const handleUpdateRoom = (idx: number, fields: any) => {
+    const updated = [...designerRooms];
+    const currentRoom = { ...updated[idx] };
+    
+    if (fields.sharingType !== undefined) {
+      const newSharing = parseInt(fields.sharingType);
+      let currentBeds = [...(currentRoom.beds || [])];
+      if (currentBeds.length < newSharing) {
+        for (let i = currentBeds.length; i < newSharing; i++) {
+          const letter = String.fromCharCode(65 + i);
+          currentBeds.push({ bedNumber: `${currentRoom.roomNumber}-${letter}`, status: 'AVAILABLE' });
+        }
+      } else if (currentBeds.length > newSharing) {
+        const bedsToRemove = currentBeds.slice(newSharing);
+        const hasActive = bedsToRemove.some(b => b.status === 'OCCUPIED' || b.status === 'RESERVED');
+        if (hasActive) {
+          alert("Cannot reduce sharing capacity below the number of occupied or reserved beds.");
+          return;
+        }
+        currentBeds = currentBeds.slice(0, newSharing);
+      }
+      currentRoom.sharingType = newSharing;
+      currentRoom.beds = currentBeds;
+    }
+
+    if (fields.roomNumber !== undefined) {
+      const newRoomNo = fields.roomNumber;
+      currentRoom.roomNumber = newRoomNo;
+      if (currentRoom.beds) {
+        currentRoom.beds = currentRoom.beds.map((b: any, index: number) => {
+          const letter = String.fromCharCode(65 + index);
+          return { ...b, bedNumber: `${newRoomNo}-${letter}` };
+        });
+      }
+    }
+    
+    updated[idx] = { ...currentRoom, ...fields };
+    setDesignerRooms(updated);
+  };
+
+  const handleDeleteRoom = (idx: number) => {
+    const room = designerRooms[idx];
+    if (room.beds && room.beds.some((b: any) => b.status === 'OCCUPIED' || b.status === 'RESERVED')) {
+      alert("Cannot delete this room because it contains active occupants or reservations.");
+      return;
+    }
+    const updated = [...designerRooms];
+    updated.splice(idx, 1);
+    setDesignerRooms(updated);
+  };
+
+  const handleSaveLayout = async () => {
+    setDesignerLoading(true);
+    setDesignerError('');
+    try {
+      const res = await fetch(`/api/buildings/${designerBuildingId}/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rooms: designerRooms }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowLayoutDesigner(false);
+        await fetchERPData();
+      } else {
+        setDesignerError(data.error || 'Failed to save layout configuration.');
+      }
+    } catch (e) {
+      setDesignerError('Network error saving layout config.');
+    } finally {
+      setDesignerLoading(false);
+    }
+  };
+
+  // Utility Bill Generator Action
+  const handleGenerateUtilityBills = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!billingBldId) return;
+    setBillingLoading(true);
+    setBillingError('');
+    setBillingSuccess('');
+
+    try {
+      const bld = buildings.find(b => b.id === billingBldId);
+      if (!bld) throw new Error('Building details not found.');
+
+      const bldFullRes = await fetch(`/api/buildings/${billingBldId}`);
+      const bldFullData = await bldFullRes.json();
+      const bldFull = bldFullData.success ? bldFullData.building : bld;
+
+      const activeResidents = residents.filter(r => r.buildingId === billingBldId && r.status === 'ACTIVE');
+      if (activeResidents.length === 0) {
+        setBillingError('No active residents in this building.');
+        setBillingLoading(false);
+        return;
+      }
+
+      let createdCount = 0;
+      for (const resItem of activeResidents) {
+        const units = billingUnits[resItem.roomId] || 0;
+        
+        const electricityCost = units * (bldFull.electricityCharges || 0);
+        const waterCost = bldFull.waterCharges || 0;
+        const wifiCost = bldFull.wifiCharges || 0;
+        const laundryCost = bldFull.laundryCharges || 0;
+        const parkingCost = bldFull.parkingCharges || 0;
+        const housekeepingCost = bldFull.housekeepingCharges || 0;
+        const foodCost = bldFull.foodCharges || 0;
+
+        const totalBill = resItem.rentAmount + electricityCost + waterCost + wifiCost + laundryCost + parkingCost + housekeepingCost + foodCost;
+
+        const breakdownNotes = `Monthly Combined Invoice. Base Rent: ₹${resItem.rentAmount.toLocaleString('en-IN')}, Electricity: ₹${electricityCost.toLocaleString('en-IN')} (${units} units at ₹${bldFull.electricityCharges}/unit), Wi-Fi: ₹${wifiCost}, Food: ₹${foodCost}, Water: ₹${waterCost}, Housekeeping: ₹${housekeepingCost + laundryCost}, Parking: ₹${parkingCost}`;
+
+        const postRes = await fetch('/api/owner/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            residentId: resItem.id,
+            buildingId: billingBldId,
+            amount: totalBill,
+            paymentType: 'RENT',
+            status: 'PENDING',
+            billingPeriod: billingMonth,
+            notes: breakdownNotes,
+          }),
+        });
+
+        if (postRes.ok) {
+          createdCount++;
+        }
+      }
+
+      setBillingSuccess(`Successfully generated ${createdCount} monthly invoices and updated resident ledgers.`);
+      setBillingUnits({});
+      await fetchERPData();
+    } catch (err: any) {
+      setBillingError(err.message || 'Error occurred during bill generation.');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   // Compile calculations for Analytics cards
   const totalBeds = residents.length + 10; // Demo offset
   const occupiedBeds = residents.length;
@@ -527,12 +718,21 @@ function OwnerDashboardComponent() {
                         <span className="text-[8px] uppercase font-bold text-zinc-400 block">Base Rent</span>
                         <span className="text-xs font-bold text-indigo-500">₹{b.baseRent.toLocaleString('en-IN')}/mo</span>
                       </div>
-                      <Link 
-                        href={`/pg/${b.id}`} 
-                        className="text-[10px] font-black text-indigo-500 hover:underline flex items-center gap-0.5"
-                      >
-                        Public page <ChevronRight className="w-3.5 h-3.5" />
-                      </Link>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLayoutDesigner(b.id, b.name)}
+                          className="text-[10px] font-black text-indigo-650 hover:underline cursor-pointer"
+                        >
+                          Configure Layout
+                        </button>
+                        <Link 
+                          href={`/pg/${b.id}`} 
+                          className="text-[10px] font-black text-zinc-500 hover:underline flex items-center gap-0.5"
+                        >
+                          Public page <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -686,12 +886,25 @@ function OwnerDashboardComponent() {
                   <h3 className="font-extrabold text-base">Revenue & Rent Ledger</h3>
                   <p className="text-xs text-zinc-500">Collect manual offline cash rents and audit digital transactions.</p>
                 </div>
-                <button
-                  onClick={() => setShowCollectPayment(true)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" /> Collect Rent
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setBillingBldId('');
+                      setBillingSuccess('');
+                      setBillingError('');
+                      setShowGenerateBills(true);
+                    }}
+                    className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-950 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 text-amber-500" /> Utility Sub-Meter
+                  </button>
+                  <button
+                    onClick={() => setShowCollectPayment(true)}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" /> Collect Rent
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
@@ -947,6 +1160,350 @@ function OwnerDashboardComponent() {
             <div className="w-full h-80 rounded-xl overflow-hidden bg-zinc-950">
               <img src={viewProofUrl} alt="Transaction screenshot proof" className="w-full h-full object-contain" />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VISUAL LAYOUT BLUEPRINT DESIGNER */}
+      {showLayoutDesigner && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-4xl w-full p-6 space-y-5 animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-black text-lg text-zinc-900 dark:text-white">Visual Floor Blueprint & Room Designer</h3>
+                <p className="text-xs text-zinc-500">{designerBuildingName}</p>
+              </div>
+              <button 
+                onClick={() => setShowLayoutDesigner(false)}
+                className="text-xs font-black text-zinc-400 hover:text-zinc-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            {designerError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 text-xs font-semibold">
+                {designerError}
+              </div>
+            )}
+
+            {designerLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                <span className="text-xs text-zinc-500 font-bold">Saving changes to building layout engine...</span>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {Array.from(new Set(designerRooms.map(r => r.floorNumber || 1))).sort((a, b) => a - b).map(floorNum => {
+                  const floorRooms = designerRooms.filter(r => (r.floorNumber || 1) === floorNum);
+                  return (
+                    <div key={floorNum} className="space-y-3 border-t border-zinc-150 dark:border-zinc-800 pt-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-black uppercase text-zinc-400 tracking-wider">Floor {floorNum}</h4>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newRoomNumber = `${floorNum}${String(floorRooms.length + 1).padStart(2, '0')}`;
+                            const baseRent = buildings.find(b => b.id === designerBuildingId)?.baseRent || 10000;
+                            const newRoom = {
+                              floorNumber: floorNum,
+                              roomNumber: newRoomNumber,
+                              sharingType: 2,
+                              hasAC: false,
+                              hasWashroom: true,
+                              price: baseRent,
+                              beds: [
+                                { bedNumber: `${newRoomNumber}-A`, status: 'AVAILABLE' },
+                                { bedNumber: `${newRoomNumber}-B`, status: 'AVAILABLE' }
+                              ]
+                            };
+                            setDesignerRooms([...designerRooms, newRoom]);
+                          }}
+                          className="px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-850 text-zinc-650 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg text-[10px] font-bold shadow-sm"
+                        >
+                          + Add Room on Floor {floorNum}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {floorRooms.map((room, roomIdx) => {
+                          const globalIdx = designerRooms.findIndex(r => r === room);
+                          return (
+                            <div key={roomIdx} className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-855/60 space-y-3">
+                              <div className="flex justify-between items-start">
+                                <span className="text-xs font-bold text-zinc-750 dark:text-zinc-300">Config: Room {room.roomNumber}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRoom(globalIdx)}
+                                  className="text-[10px] text-rose-500 font-extrabold hover:underline"
+                                >
+                                  Remove Room
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <label className="text-[9px] uppercase font-bold text-zinc-400 block mb-1">Room #</label>
+                                  <input
+                                    type="text"
+                                    value={room.roomNumber}
+                                    onChange={(e) => handleUpdateRoom(globalIdx, { roomNumber: e.target.value })}
+                                    className="w-full bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-800 rounded-lg px-2 py-1.5 outline-none font-semibold text-zinc-800 dark:text-zinc-100"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[9px] uppercase font-bold text-zinc-400 block mb-1">Price (₹)</label>
+                                  <input
+                                    type="number"
+                                    value={room.price}
+                                    onChange={(e) => handleUpdateRoom(globalIdx, { price: parseFloat(e.target.value) || 0 })}
+                                    className="w-full bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-800 rounded-lg px-2 py-1.5 outline-none font-semibold text-zinc-800 dark:text-zinc-100"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2 text-[10px] font-bold">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={room.hasAC}
+                                    onChange={(e) => handleUpdateRoom(globalIdx, { hasAC: e.target.checked })}
+                                    className="accent-indigo-600"
+                                  />
+                                  <span>AC Room</span>
+                                </label>
+
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={room.hasWashroom}
+                                    onChange={(e) => handleUpdateRoom(globalIdx, { hasWashroom: e.target.checked })}
+                                    className="accent-indigo-600"
+                                  />
+                                  <span>Private Bath</span>
+                                </label>
+
+                                <div className="flex items-center gap-1">
+                                  <span className="text-zinc-400">Sharing:</span>
+                                  <select
+                                    value={room.sharingType}
+                                    onChange={(e) => handleUpdateRoom(globalIdx, { sharingType: parseInt(e.target.value) })}
+                                    className="bg-transparent border-none outline-none font-extrabold text-zinc-750 dark:text-zinc-300"
+                                  >
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-zinc-200/55 dark:border-zinc-850 text-[10px] space-y-1">
+                                <span className="text-[9px] uppercase font-bold text-zinc-400 block mb-1">Beds Structure</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {room.beds && room.beds.map((bed: any, bIdx: number) => (
+                                    <span
+                                      key={bIdx}
+                                      className={`px-2 py-1 rounded border text-[9px] font-black ${
+                                        bed.status === 'OCCUPIED' 
+                                          ? 'bg-rose-500/10 text-rose-500 border-rose-500' 
+                                          : bed.status === 'RESERVED' 
+                                          ? 'bg-amber-500/10 text-amber-500 border-amber-500' 
+                                          : 'bg-emerald-500/10 text-emerald-500 border-emerald-500'
+                                      }`}
+                                    >
+                                      {bed.bedNumber}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="flex gap-3 justify-end pt-4 border-t border-zinc-150 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const maxFloor = designerRooms.length > 0 ? Math.max(...designerRooms.map(r => r.floorNumber || 1)) : 0;
+                      const nextFloor = maxFloor + 1;
+                      const baseRent = buildings.find(b => b.id === designerBuildingId)?.baseRent || 10000;
+                      const newRoomNumber = `${nextFloor}01`;
+                      const newRoom = {
+                        floorNumber: nextFloor,
+                        roomNumber: newRoomNumber,
+                        sharingType: 2,
+                        hasAC: false,
+                        hasWashroom: true,
+                        price: baseRent,
+                        beds: [
+                          { bedNumber: `${newRoomNumber}-A`, status: 'AVAILABLE' },
+                          { bedNumber: `${newRoomNumber}-B`, status: 'AVAILABLE' }
+                        ]
+                      };
+                      setDesignerRooms([...designerRooms, newRoom]);
+                    }}
+                    className="px-4 py-2 border border-zinc-250 dark:border-zinc-700 text-zinc-650 hover:text-zinc-850 dark:hover:text-white rounded-xl text-xs font-bold shadow-sm"
+                  >
+                    + Add Floor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveLayout}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                  >
+                    Save Layout Blueprint
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: UTILITY SUB-METER BILL GENERATION */}
+      {showGenerateBills && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 text-xs">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full p-6 space-y-5 animate-fade-in max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-black text-base text-zinc-900 dark:text-white">Sub-Meter Utility Billing Console</h3>
+                <p className="text-xs text-zinc-500">Calculate electricity units consumption and append local amenities costs.</p>
+              </div>
+              <button 
+                onClick={() => setShowGenerateBills(false)}
+                className="text-xs font-black text-zinc-400 hover:text-zinc-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            {billingSuccess && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold">
+                {billingSuccess}
+              </div>
+            )}
+
+            {billingError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-semibold">
+                {billingError}
+              </div>
+            )}
+
+            <form onSubmit={handleGenerateUtilityBills} className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-500 block">Select Property</label>
+                  <select
+                    value={billingBldId}
+                    onChange={(e) => {
+                      setBillingBldId(e.target.value);
+                      setBillingUnits({});
+                      setBillingSuccess('');
+                      setBillingError('');
+                    }}
+                    required
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-xl px-3 py-2.5 font-semibold outline-none focus:border-indigo-600 text-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="">-- Choose PG Building --</option>
+                    {buildings.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-500 block">Billing Period / Month</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. July 2026"
+                    value={billingMonth}
+                    onChange={(e) => setBillingMonth(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-xl py-2 px-3 font-semibold outline-none focus:border-indigo-600 text-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              {billingBldId && (
+                <div className="space-y-4">
+                  <h4 className="font-extrabold uppercase tracking-wide text-zinc-400 text-[10px]">Sub-Meter Units Input Table</h4>
+                  
+                  {residents.filter(r => r.buildingId === billingBldId && r.status === 'ACTIVE').length === 0 ? (
+                    <div className="p-6 text-center text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
+                      No active residents currently checked into this property.
+                    </div>
+                  ) : (
+                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-zinc-50 dark:bg-zinc-950/60 border-b border-zinc-150 dark:border-zinc-850 text-zinc-400 font-bold uppercase tracking-wider">
+                            <th className="p-3">Resident</th>
+                            <th className="p-3">Room / Bed</th>
+                            <th className="p-3">Units consumed</th>
+                            <th className="p-3 text-right">Preview Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-850 font-semibold text-zinc-700 dark:text-zinc-300">
+                          {residents.filter(r => r.buildingId === billingBldId && r.status === 'ACTIVE').map(resItem => {
+                            const bld = buildings.find(b => b.id === billingBldId);
+                            const u = billingUnits[resItem.roomId] || 0;
+                            const elecCost = u * (bld?.electricityCharges || 10);
+                            const otherCost = (bld?.waterCharges || 0) + (bld?.wifiCharges || 0) + (bld?.laundryCharges || 0) + (bld?.parkingCharges || 0) + (bld?.housekeepingCharges || 0) + (bld?.foodCharges || 0);
+                            const previewTotal = resItem.rentAmount + elecCost + otherCost;
+
+                            return (
+                              <tr key={resItem.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40">
+                                <td className="p-3">
+                                  <div className="font-bold">{resItem.name}</div>
+                                  <div className="text-[10px] text-zinc-500 font-medium">{resItem.email}</div>
+                                </td>
+                                <td className="p-3">Room {resItem.roomNumber} ({resItem.bedNumber})</td>
+                                <td className="p-3">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="0"
+                                    value={billingUnits[resItem.roomId] || ''}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      setBillingUnits({ ...billingUnits, [resItem.roomId]: val });
+                                    }}
+                                    className="w-20 bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-800 rounded px-2 py-1 outline-none font-bold text-zinc-800 dark:text-zinc-100 text-center"
+                                  />
+                                </td>
+                                <td className="p-3 text-right text-indigo-500 font-extrabold">
+                                  ₹{previewTotal.toLocaleString('en-IN')}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {residents.filter(r => r.buildingId === billingBldId && r.status === 'ACTIVE').length > 0 && (
+                    <button
+                      type="submit"
+                      disabled={billingLoading}
+                      className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-650 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      {billingLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Generate Invoices & Post to Ledgers'
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+            </form>
           </div>
         </div>
       )}

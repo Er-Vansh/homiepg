@@ -10,6 +10,12 @@ export interface Bed {
   status: 'AVAILABLE' | 'RESERVED' | 'OCCUPIED';
   currentResidentId?: string;
   expectedVacantDate?: string;
+  roommateProfile?: {
+    diet: 'VEG' | 'NON_VEG' | 'ANY';
+    sleep: 'EARLY_BIRD' | 'NIGHT_OWL' | 'FLEXIBLE';
+    occupation: 'STUDENT' | 'PROFESSIONAL' | 'OTHER';
+    hobbies: string;
+  };
 }
 
 export interface Room {
@@ -114,6 +120,8 @@ export default function BedGrid({ rooms, selectedBedId, onSelectBed, interactive
                         statusClasses = 'bg-rose-500/5 text-rose-600 border-rose-500 cursor-not-allowed';
                       }
 
+                      const hasProfile = bed.status === 'OCCUPIED' && bed.roommateProfile;
+
                       return (
                         <div
                           key={bed.id}
@@ -122,8 +130,7 @@ export default function BedGrid({ rooms, selectedBedId, onSelectBed, interactive
                               onSelectBed(bed, room);
                             }
                           }}
-                          title={`Bed ${bed.bedNumber} - ${bed.status}`}
-                          className={`relative border rounded-lg p-2.5 flex flex-col items-center justify-center font-bold text-xs transition-all duration-200 select-none ${statusClasses}`}
+                          className={`relative group border rounded-lg p-2.5 flex flex-col items-center justify-center font-bold text-xs transition-all duration-200 select-none ${statusClasses}`}
                         >
                           <BedIcon className="w-4 h-4 mb-1" />
                           <span className="text-[10px] tracking-tight">{bed.bedNumber.split('-')[1] || bed.bedNumber}</span>
@@ -131,6 +138,23 @@ export default function BedGrid({ rooms, selectedBedId, onSelectBed, interactive
                             <span className="absolute -top-1 -right-1 bg-white border border-indigo-600 rounded-full p-0.5 text-indigo-600 shadow">
                               <Check className="w-2.5 h-2.5 stroke-[4px]" />
                             </span>
+                          )}
+
+                          {/* Hover Roommate Tooltip */}
+                          {hasProfile && bed.roommateProfile && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 hidden group-hover:block bg-zinc-950/95 dark:bg-zinc-900/95 text-white text-[10px] p-2.5 rounded-xl border border-zinc-800 dark:border-zinc-800 shadow-xl z-50 pointer-events-none text-left">
+                              <span className="font-bold text-indigo-400 block mb-1">Active Roommate:</span>
+                              <div className="space-y-0.5 font-semibold text-zinc-300">
+                                <p>🍳 Diet: {bed.roommateProfile.diet === 'VEG' ? 'Vegetarian' : bed.roommateProfile.diet === 'NON_VEG' ? 'Non-Veg' : 'No Pref'}</p>
+                                <p>🌙 Sleep: {bed.roommateProfile.sleep === 'EARLY_BIRD' ? 'Early Bird' : bed.roommateProfile.sleep === 'NIGHT_OWL' ? 'Night Owl' : 'Flexible'}</p>
+                                <p>💼 Job: {bed.roommateProfile.occupation === 'STUDENT' ? 'Student' : bed.roommateProfile.occupation === 'PROFESSIONAL' ? 'Corporate' : 'Other'}</p>
+                                {bed.roommateProfile.hobbies && (
+                                  <p className="truncate mt-1 text-[9px] text-zinc-400 border-t border-zinc-800/60 dark:border-zinc-800 pt-1">
+                                    🎭: {bed.roommateProfile.hobbies}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                       );

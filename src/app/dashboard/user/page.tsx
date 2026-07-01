@@ -76,11 +76,11 @@ function UserDashboardComponent() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'stay' | 'kyc' | 'helpdesk' | 'search'>('stay');
+  const [activeTab, setActiveTab] = useState<'stay' | 'kyc' | 'helpdesk' | 'search' | 'matcher'>('stay');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const validTabs = ['stay', 'kyc', 'helpdesk', 'search'];
+    const validTabs = ['stay', 'kyc', 'helpdesk', 'search', 'matcher'];
     if (tab && validTabs.includes(tab)) {
       setActiveTab(tab as any);
     }
@@ -149,12 +149,24 @@ function UserDashboardComponent() {
   const [ticketDesc, setTicketDesc] = useState('');
 
   // Ticket Chat state
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
   const [chatMessage, setChatMessage] = useState('');
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [resolveRating, setResolveRating] = useState(5);
+  const [resolveComment, setResolveComment] = useState('');
 
   // KYC upload simulator states
   const [kycAadhaarUrl, setKycAadhaarUrl] = useState('');
   const [kycPanUrl, setKycPanUrl] = useState('');
+
+  // Roommate Compatibility Profile states
+  const [compatDiet, setCompatDiet] = useState<'VEG' | 'NON_VEG' | 'ANY'>('ANY');
+  const [compatSleep, setCompatSleep] = useState<'EARLY_BIRD' | 'NIGHT_OWL' | 'FLEXIBLE'>('FLEXIBLE');
+  const [compatOccupation, setCompatOccupation] = useState<'STUDENT' | 'PROFESSIONAL' | 'OTHER'>('OTHER');
+  const [compatHobbies, setCompatHobbies] = useState('');
+  const [compatLoading, setCompatLoading] = useState(false);
+  const [compatSuccess, setCompatSuccess] = useState(false);
+  const [compatError, setCompatError] = useState('');
 
   const loadDashboardData = async () => {
     try {
@@ -203,6 +215,23 @@ function UserDashboardComponent() {
       const tktData = await tktRes.json();
       if (tktData.success) {
         setTickets(tktData.tickets);
+      }
+
+      // 5. Fetch Compatibility Profile
+      try {
+        const compatRes = await fetch('/api/user/compatibility');
+        if (compatRes.ok) {
+          const compatData = await compatRes.json();
+          if (compatData.success && compatData.compatibilityProfile) {
+            const profile = compatData.compatibilityProfile;
+            setCompatDiet(profile.diet || 'ANY');
+            setCompatSleep(profile.sleep || 'FLEXIBLE');
+            setCompatOccupation(profile.occupation || 'OTHER');
+            setCompatHobbies(profile.hobbies || '');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching compatibility settings', err);
       }
 
     } catch (e) {
@@ -299,6 +328,38 @@ function UserDashboardComponent() {
     }
   };
 
+  const handleResolveTicketSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTicket) return;
+    setActionLoading(true);
+
+    try {
+      const res = await fetch('/api/tickets', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketId: selectedTicket.id,
+          status: 'RESOLVED',
+          rating: resolveRating,
+          message: resolveComment ? `Ticket closed by resident. Feedback: ${resolveComment}` : `Ticket marked as RESOLVED by resident. Rating: ${resolveRating} Stars.`,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setShowResolveModal(false);
+        setSelectedTicket(data.ticket);
+        setResolveComment('');
+        setResolveRating(5);
+        await loadDashboardData();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleUploadKyc = async (docType: 'aadhaar' | 'pan') => {
     // Simulated upload trigger
     const mockUrl = `/kyc/${user?.id}_${docType}.pdf`;
@@ -321,6 +382,38 @@ function UserDashboardComponent() {
       });
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleSaveCompatibilityProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCompatLoading(true);
+    setCompatError('');
+    setCompatSuccess(false);
+
+    try {
+      const res = await fetch('/api/user/compatibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diet: compatDiet,
+          sleep: compatSleep,
+          occupation: compatOccupation,
+          hobbies: compatHobbies,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCompatSuccess(true);
+        await loadDashboardData();
+      } else {
+        setCompatError(data.error || 'Failed to update compatibility profile.');
+      }
+    } catch (err) {
+      setCompatError('Network error saving profile settings.');
+    } finally {
+      setCompatLoading(false);
     }
   };
 
@@ -351,6 +444,7 @@ function UserDashboardComponent() {
               { id: 'search', label: 'Explore Rooms' },
               { id: 'kyc', label: 'Document Locker' },
               { id: 'helpdesk', label: 'Support Desk' },
+              { id: 'matcher', label: 'Living Matcher' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -863,9 +957,53 @@ function UserDashboardComponent() {
                       </span>
                     </div>
 
+                    {/* Assigned Worker Sub-Header Banner */}
+                    {selectedTicket.assignedEmployee && (
+                      <div className="px-4 py-3 bg-zinc-50 dark:bg-zinc-950/60 border-b border-zinc-150 dark:border-zinc-900 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 font-extrabold uppercase">
+                            {selectedTicket.assignedEmployee.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-bold text-zinc-800 dark:text-zinc-250 flex items-center gap-1.5 leading-none">
+                              <span>{selectedTicket.assignedEmployee.name}</span>
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-850 text-[7px] uppercase tracking-wide font-black text-zinc-500">
+                                {selectedTicket.assignedEmployee.role}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-zinc-550 flex items-center gap-1 mt-1 leading-none font-medium">
+                              ⭐ {selectedTicket.assignedEmployee.rating || '5.0'} ({selectedTicket.assignedEmployee.ratingCount || 1} feedback)
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <a 
+                            href={`tel:${selectedTicket.assignedEmployee.phone}`}
+                            className="px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 hover:text-indigo-600 rounded-lg text-[9px] font-bold shadow-sm"
+                          >
+                            ☎️ Call Worker
+                          </a>
+                          {selectedTicket.status !== 'RESOLVED' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setResolveRating(5);
+                                setResolveComment('');
+                                setShowResolveModal(true);
+                              }}
+                              className="px-2 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[9px] font-bold shadow-sm cursor-pointer"
+                            >
+                              Resolve Ticket
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Messages Body */}
                     <div className="flex-1 p-5 overflow-y-auto space-y-4">
-                      {selectedTicket.messages.map((msg, idx) => {
+                      {selectedTicket.messages.map((msg: any, idx: number) => {
                         const isMe = msg.sender === user?.name;
                         return (
                           <div
@@ -927,8 +1065,169 @@ function UserDashboardComponent() {
             </div>
           )}
 
+          {/* Tab 5: LIVING MATCHER COMPATIBILITY PROFILE */}
+          {activeTab === 'matcher' && (
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 p-6 rounded-2xl space-y-6 max-w-2xl animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                  <UserIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-zinc-900 dark:text-white">Living Matcher Profile</h3>
+                  <p className="text-xs text-zinc-500">Set compatibility answers to find optimal roommate cohorts.</p>
+                </div>
+              </div>
+              <div className="h-px bg-zinc-100 dark:bg-zinc-800"></div>
+
+              {compatSuccess && (
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 font-extrabold" />
+                  <span>Your roommate compatibility questionnaire has been saved successfully!</span>
+                </div>
+              )}
+
+              {compatError && (
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+                  {compatError}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveCompatibilityProfile} className="space-y-5 text-xs">
+                {/* Diet preference */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-500 block">Dietary Habit</label>
+                  <select
+                    value={compatDiet}
+                    onChange={(e) => setCompatDiet(e.target.value as any)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 font-semibold outline-none focus:border-indigo-600 text-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="VEG">Strictly Vegetarian (Veg)</option>
+                    <option value="NON_VEG">Non-Vegetarian / Anything</option>
+                    <option value="ANY">No Food Cohort Preference</option>
+                  </select>
+                </div>
+
+                {/* Sleep schedule */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-500 block">Daily Sleep Cycle</label>
+                  <select
+                    value={compatSleep}
+                    onChange={(e) => setCompatSleep(e.target.value as any)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 font-semibold outline-none focus:border-indigo-600 text-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="EARLY_BIRD">Early Bird (Sleeps before 10 PM)</option>
+                    <option value="NIGHT_OWL">Night Owl (Sleeps late after 12 AM)</option>
+                    <option value="FLEXIBLE">Flexible / Adaptable schedule</option>
+                  </select>
+                </div>
+
+                {/* Profession */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-500 block">Occupation / Profession</label>
+                  <select
+                    value={compatOccupation}
+                    onChange={(e) => setCompatOccupation(e.target.value as any)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 font-semibold outline-none focus:border-indigo-600 text-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="STUDENT">Active Student (College/School)</option>
+                    <option value="PROFESSIONAL">Working Corporate Professional</option>
+                    <option value="OTHER">Other Occupations</option>
+                  </select>
+                </div>
+
+                {/* Hobbies / Custom tags */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-500 block">Living Hobbies & Interests</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Gaming, Football, Silent Reading, Guitar playing"
+                    value={compatHobbies}
+                    onChange={(e) => setCompatHobbies(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl py-3 px-4 font-semibold outline-none focus:border-indigo-600 placeholder-zinc-400 text-zinc-800 dark:text-zinc-100"
+                  />
+                  <span className="text-[10px] text-zinc-450 block font-medium">Use commas to separate multiple keywords. This will be visible anonymized to other prospective bed bookers.</span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={compatLoading}
+                  className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-650 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {compatLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Save Compatibility Settings'
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
+
         </main>
       </div>
+
+      {/* MODAL: TICKET RESOLUTION & RATING STAFF */}
+      {showResolveModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 text-xs">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-sm w-full p-6 space-y-5 animate-fade-in text-left">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-black text-base text-zinc-900 dark:text-white">Resolve Grievance</h3>
+                <span className="text-[10px] text-zinc-400 font-bold block mt-0.5">Please rate the caretaker's support.</span>
+              </div>
+              <button 
+                onClick={() => setShowResolveModal(false)}
+                className="text-xs font-black text-zinc-400 hover:text-zinc-600"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleResolveTicketSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-zinc-500 block">Performance Rating</label>
+                <div className="flex gap-2 justify-center py-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setResolveRating(star)}
+                      className={`text-2xl transition-all cursor-pointer ${
+                        resolveRating >= star ? 'text-amber-400 scale-110' : 'text-zinc-300 dark:text-zinc-700'
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                <div className="text-center font-bold text-zinc-650 text-[10px] uppercase">
+                  {resolveRating === 5 ? 'Exceptional Work' : resolveRating === 4 ? 'Very Satisfied' : resolveRating === 3 ? 'Average Support' : resolveRating === 2 ? 'Unsatisfying' : 'Poor Care'}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-zinc-500 block">Closing Comments (Optional)</label>
+                <textarea
+                  placeholder="Tell us what went well or how they can improve..."
+                  value={resolveComment}
+                  onChange={(e) => setResolveComment(e.target.value)}
+                  rows={3}
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs outline-none focus:border-indigo-600 placeholder-zinc-400 font-semibold text-zinc-800 dark:text-zinc-100"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-650 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Confirm Resolution & Submit Rating'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: SUBMIT INVOICE RECEIPT */}
       {payInvoice && (
