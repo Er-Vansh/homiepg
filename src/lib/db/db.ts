@@ -267,9 +267,30 @@ export function getDB(): DBData {
   
   try {
     const content = fs.readFileSync(DB_FILE_PATH, 'utf-8');
-    return JSON.parse(content) as DBData;
+    const parsed = JSON.parse(content) as DBData;
+    // Write a backup of the last good read so we can recover from it
+    // instead of reverting to seed data on corruption.
+    try {
+      fs.writeFileSync(DB_FILE_PATH + '.bak', content, 'utf-8');
+    } catch (_) { /* non-critical */ }
+    return parsed;
   } catch (e) {
-    console.error('Failed to parse database, generating seed', e);
+    console.error('Failed to parse db.json, attempting backup recovery', e);
+    const backupPath = DB_FILE_PATH + '.bak';
+    if (fs.existsSync(backupPath)) {
+      try {
+        const backupContent = fs.readFileSync(backupPath, 'utf-8');
+        const recovered = JSON.parse(backupContent) as DBData;
+        console.warn('Recovered database from backup file.');
+        // Restore the main file from backup
+        fs.writeFileSync(DB_FILE_PATH, backupContent, 'utf-8');
+        return recovered;
+      } catch (backupErr) {
+        console.error('Backup recovery also failed', backupErr);
+      }
+    }
+    // Last resort: seed (should rarely happen)
+    console.error('Falling back to seed data — all changes since last backup are lost.');
     const seed = getSeedData();
     try {
       fs.writeFileSync(DB_FILE_PATH, JSON.stringify(seed, null, 2), 'utf-8');
@@ -281,7 +302,12 @@ export function getDB(): DBData {
 }
 
 export function saveDB(data: DBData): void {
-  fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  const json = JSON.stringify(data, null, 2);
+  const tmpPath = DB_FILE_PATH + '.tmp';
+  // Write to a temp file first, then atomically rename to prevent
+  // partial-write corruption that causes getDB() to fall back to seed data.
+  fs.writeFileSync(tmpPath, json, 'utf-8');
+  fs.renameSync(tmpPath, DB_FILE_PATH);
 }
 
 // Generate high-fidelity seed data
@@ -605,7 +631,7 @@ function getSeedData(): DBData {
       roomId: 'rm_2',
       bedId: 'bed_3',
       amount: 12000,
-      status: 'PENDING',
+      status: 'APPROVED',
       moveInDate: '2026-07-05',
       moveOutDate: '2026-12-31',
       paymentProofUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=400&q=80',

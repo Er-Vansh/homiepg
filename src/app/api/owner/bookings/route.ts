@@ -73,6 +73,7 @@ export async function POST(req: Request) {
       if (bedIndex !== -1) {
         db.beds[bedIndex].status = 'OCCUPIED';
         db.beds[bedIndex].currentResidentId = `res_${Math.random().toString(36).substr(2, 9)}`;
+        db.beds[bedIndex].reservationExpiry = undefined; // Clear stale expiry on approval
         db.beds[bedIndex].expectedVacantDate = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 6 months default
       }
 

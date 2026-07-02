@@ -21,7 +21,7 @@ interface SidebarProps {
 export default function Sidebar({ user }: SidebarProps) {
   return (
     <React.Suspense fallback={
-      <div className="w-64 bg-zinc-900 border-r border-zinc-800 text-zinc-500 p-6">
+      <div className="w-64 bg-white border-r border-zinc-200 text-zinc-400 p-6">
         Loading nav desk...
       </div>
     }>
@@ -91,17 +91,17 @@ function SidebarContent({ user }: SidebarProps) {
   const links = getLinks();
 
   return (
-    <aside className="w-64 bg-zinc-900 border-r border-zinc-800 text-zinc-300 flex flex-col h-screen sticky top-0 shrink-0">
+    <aside className="w-64 bg-white border-r border-zinc-200 text-zinc-600 flex flex-col h-screen sticky top-0 shrink-0">
       {/* Brand Logo */}
-      <div className="p-4 border-b border-zinc-800">
+      <div className="p-4 border-b border-zinc-200">
         <Link href="/" className="block">
-          <Logo className="w-8 h-8" showText={true} />
+          <Logo className="w-8 h-8" showText={true} darkText={true} />
         </Link>
       </div>
 
       {/* Nav Links */}
       <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-        <div className="px-3 mb-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+        <div className="px-3 mb-2 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
           Navigation
         </div>
         {links.map((link) => {
@@ -125,8 +125,8 @@ function SidebarContent({ user }: SidebarProps) {
               href={link.href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                 isActive 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' 
-                  : 'hover:bg-zinc-800 hover:text-white'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' 
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
               }`}
             >
               <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
@@ -137,21 +137,21 @@ function SidebarContent({ user }: SidebarProps) {
       </nav>
 
       {/* Footer User Info */}
-      <div className="p-4 border-t border-zinc-800 bg-zinc-950/40">
+      <div className="p-4 border-t border-zinc-200 bg-zinc-50">
         <div className="flex items-center gap-3 mb-3 px-2">
-          <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center font-bold text-zinc-200 text-xs uppercase border border-zinc-600">
+          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-600 text-xs uppercase border border-indigo-200">
             {user.name.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-white truncate">{user.name}</p>
-            <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-zinc-800 text-indigo-300 border border-zinc-700 tracking-wider">
+            <p className="text-xs font-semibold text-zinc-800 truncate">{user.name}</p>
+            <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-indigo-50 text-indigo-600 border border-indigo-200 tracking-wider">
               {user.role}
             </span>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors border border-rose-500/10"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-colors border border-rose-200"
         >
           <LogOut className="w-3.5 h-3.5" />
           Logout Session

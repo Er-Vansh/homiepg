@@ -79,11 +79,6 @@ export default function PgOwnerPortal() {
     }
   };
 
-  const handleDemoFill = () => {
-    setEmail('owner@homiepg.com');
-    setPassword('Password123');
-  };
-
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-emerald-500 selection:text-white">
       {/* Background glow grids */}
@@ -161,17 +156,6 @@ export default function PgOwnerPortal() {
             </button>
           </form>
 
-          {/* Quick Demo Assist Login Buttons */}
-          <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/85 space-y-2">
-            <span className="text-[9px] uppercase font-black text-zinc-400 tracking-wider block">Demo Account Quick-Fill</span>
-            <button 
-              type="button"
-              onClick={handleDemoFill}
-              className="w-full px-2 py-1.5 bg-zinc-200 hover:bg-emerald-600 hover:text-white rounded-md text-[10px] font-bold text-zinc-600 text-center transition-all cursor-pointer"
-            >
-              PG Owner ERP Demo
-            </button>
-          </div>
 
         </div>
 

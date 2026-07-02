@@ -49,13 +49,6 @@ function LoginFormComponent() {
     }
   }, [searchParams, router]);
 
-  const handleDemoLogin = () => {
-    setError('');
-    setSuccess('');
-    setEmail('user@homiepg.com');
-    setPassword('Password123');
-  };
-
   const handleGoogleAuth = () => {
     window.location.href = '/api/auth/google';
   };
@@ -135,19 +128,6 @@ function LoginFormComponent() {
               Register
             </button>
           </div>
-
-          {!isRegister && (
-            <div className="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 space-y-2">
-              <span className="text-[9px] uppercase font-black text-zinc-400 tracking-wider block">Demo Account Quick-Fill</span>
-              <button 
-                type="button"
-                onClick={handleDemoLogin}
-                className="w-full px-2 py-1.5 bg-zinc-200 hover:bg-indigo-500 hover:text-white dark:bg-zinc-800/50 rounded-md text-[10px] font-bold text-zinc-600 dark:text-zinc-300 text-center transition-all cursor-pointer"
-              >
-                Tenant User Demo
-              </button>
-            </div>
-          )}
 
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-semibold leading-relaxed">
